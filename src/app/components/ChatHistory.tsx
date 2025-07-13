@@ -7,7 +7,7 @@ interface ChatHistoryProps {
   isVisible: boolean;
   onClose: () => void;
   onSelectSession: (sessionId: string) => void;
-  currentSessionId?: string;
+  currentSessionId?: string | null;
 }
 
 export const ChatHistory: React.FC<ChatHistoryProps> = ({ 
