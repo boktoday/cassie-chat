@@ -20,7 +20,6 @@ import { dbManager, UserContext, ChatMessage } from '../../utils/indexedDB';
 import { useTranslations } from 'next-intl';
 import { useRouter } from 'next/navigation';
 import { useLocale } from 'next-intl';
-import { routing } from '../../i18n/routing';
 
 interface FormInputs {
   message: string;

@@ -4,10 +4,6 @@ import { Analytics } from '@vercel/analytics/next';
 import "../globals.css";
 import { NextIntlClientProvider } from "next-intl";
 
-import {notFound} from 'next/navigation';
-import {routing} from '../../i18n/routing';
-import {getMessages} from 'next-intl/server';
-
 const inter = Inter({
   variable: "--font-inter",
   subsets: ["latin"],
@@ -18,24 +14,13 @@ export const metadata: Metadata = {
   description: "Jiyuu Chat is an open-source AI-powered chat application built with Next.js. It integrates advanced machine learning models for seamless and engaging conversations.",
 };
 
-export function generateStaticParams() {
-  return routing.locales.map((locale) => ({locale}));
-}
-
 export default function RootLayout({
   children,
-  params: {locale}
 }: Readonly<{
   children: React.ReactNode;
-  params: {locale: string};
 }>) {
-  // Ensure that the incoming `locale` is valid
-  if (!routing.locales.includes(locale as any)) {
-    notFound();
-  }
-
   return (
-    <html lang={locale}>
+    <html lang="en">
       <head>
         {/* Primary Meta Tags */}
         <meta name="title" content="Jiyuu Chat - AI-Powered Conversations" />
@@ -73,7 +58,7 @@ export default function RootLayout({
       <body
         className={`${inter.variable} antialiased`}
       >
-        <NextIntlClientProvider locale={locale}>
+        <NextIntlClientProvider>
           {children}
         </NextIntlClientProvider>
         <Analytics />
