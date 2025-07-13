@@ -20,6 +20,7 @@ import { dbManager, UserContext, ChatMessage } from '../../utils/indexedDB';
 import { useTranslations } from 'next-intl';
 import { useRouter } from 'next/navigation';
 import { useLocale } from 'next-intl';
+import { routing } from '../../i18n/routing';
 
 interface FormInputs {
   message: string;
@@ -640,6 +641,12 @@ function hashCode(str: string): string {
     hash |= 0;
   }
   return hash.toString();
+}
+
+export async function generateStaticParams() {
+  return routing.locales.map((locale) => ({
+    locale: locale,
+  }));
 }
 
 export default App;
