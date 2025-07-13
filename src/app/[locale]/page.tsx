@@ -643,9 +643,9 @@ function hashCode(str: string): string {
   return hash.toString();
 }
 
-export async function generateStaticParams() {
+export function generateStaticParams() {
   return routing.locales.map((locale) => ({
-    locale: locale,
+    locale,
   }));
 }
 
