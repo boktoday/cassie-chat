@@ -443,7 +443,7 @@ function App() {
           <select
             value={locale}
             onChange={(e) => handleLanguageChange(e.target.value)}
-            className="bg-[var(--color-button-background-in)] text-[var(--color-text)] border-[var(--color-button-border)] rounded p-2"
+            className="bg-[var(--color-button-background-in)] text-[var(--color-text)] border border-[var(--color-button-border-in)] rounded p-2"
           >
             {locales.map((locale) => (
               <option key={locale.code} value={locale.code}>
@@ -453,31 +453,31 @@ function App() {
           </select>
         </div>
         
-        <div className="absolute top-4 right-4 flex gap-2 z-50">
+        <div className="absolute top-16 right-4 flex flex-col gap-2 z-50">
           <button 
             onClick={toggleContextForm} 
-            className="bg-[var(--color-button-background-in)] text-[var(--color-text)] p-2 rounded-full shadow-lg"
+            className="bg-[var(--color-button-background-in)] text-[var(--color-text)] p-2 rounded-full shadow-lg hover:bg-[var(--color-hover)] transition-colors"
             title="User Context"
           >
             <User className="w-5 h-5 cursor-pointer" />
           </button>
           <button 
             onClick={toggleChatHistory} 
-            className="bg-[var(--color-button-background-in)] text-[var(--color-text)] p-2 rounded-full shadow-lg"
+            className="bg-[var(--color-button-background-in)] text-[var(--color-text)] p-2 rounded-full shadow-lg hover:bg-[var(--color-hover)] transition-colors"
             title="Chat History"
           >
             <History className="w-5 h-5 cursor-pointer" />
           </button>
           <button 
             onClick={createNewChat} 
-            className="bg-[var(--color-button-background-in)] text-[var(--color-text)] p-2 rounded-full shadow-lg"
+            className="bg-[var(--color-button-background-in)] text-[var(--color-text)] p-2 rounded-full shadow-lg hover:bg-[var(--color-hover)] transition-colors"
             title="New Chat"
           >
             <Plus className="w-5 h-5 cursor-pointer" />
           </button>
           <button 
             onClick={clearChat} 
-            className="bg-[var(--color-button-background-in)] text-[var(--color-text)] p-2 rounded-full shadow-lg"
+            className="bg-[var(--color-button-background-in)] text-[var(--color-text)] p-2 rounded-full shadow-lg hover:bg-[var(--color-hover)] transition-colors"
             title="Clear Chat"
           >
             <Trash2 className="w-5 h-5 cursor-pointer" />
