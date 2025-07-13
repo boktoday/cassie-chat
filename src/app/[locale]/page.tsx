@@ -1,7 +1,7 @@
 'use client';
 import React, { useState, useEffect, useRef } from 'react';
 import { useForm } from 'react-hook-form';
-import { BotMessageSquare, RotateCcw, Copy, Check, Square, Trash2 } from 'lucide-react';
+import { BotMessageSquare, RotateCcw, Copy, Check, Square, Trash2, User, History, Plus } from 'lucide-react';
 import { CreateMLCEngine } from "@mlc-ai/web-llm";
 import { Prism as SyntaxHighlighter } from 'react-syntax-highlighter';
 import { atomDark } from 'react-syntax-highlighter/dist/cjs/styles/prism';
@@ -14,6 +14,9 @@ import { jsx, Fragment, jsxs } from 'react/jsx-runtime';
 import { gsap } from 'gsap';
 import { InfoButton } from '../components/InfoButton';
 import { WelcomeMessage } from '../components/WelcomeMessage';
+import { ContextForm } from '../components/ContextForm';
+import { ChatHistory } from '../components/ChatHistory';
+import { dbManager, UserContext, ChatMessage } from '../../utils/indexedDB';
 import { useTranslations } from 'next-intl';
 import { useRouter } from 'next/navigation';
 import { useLocale } from 'next-intl';
@@ -155,6 +158,10 @@ function App() {
   const [showReadyMessage, setShowReadyMessage] = useState(false);
   const [isInfoVisible, setIsInfoVisible] = useState(false);
   const [showWelcomeMessage, setShowWelcomeMessage] = useState(true);
+  const [isContextFormVisible, setIsContextFormVisible] = useState(false);
+  const [isChatHistoryVisible, setIsChatHistoryVisible] = useState(false);
+  const [userContext, setUserContext] = useState<UserContext | null>(null);
+  const [currentSessionId, setCurrentSessionId] = useState<string | null>(null);
 
   const messageRefs = useRef<(HTMLDivElement | null)[]>([]);
   const welcomeMessageRef = useRef<HTMLDivElement>(null);
@@ -163,6 +170,84 @@ function App() {
     setIsInfoVisible(!isInfoVisible);
   };
 
+  const toggleContextForm = () => {
+    setIsContextFormVisible(!isContextFormVisible);
+  };
+
+  const toggleChatHistory = () => {
+    setIsChatHistoryVisible(!isChatHistoryVisible);
+  };
+
+  const handleContextSave = (context: UserContext) => {
+    setUserContext(context);
+  };
+
+  const createNewChat = async () => {
+    try {
+      const sessionId = await dbManager.createChatSession();
+      setCurrentSessionId(sessionId);
+      clearChat();
+    } catch (error) {
+      console.error('Error creating new chat session:', error);
+    }
+  };
+
+  const loadChatSession = async (sessionId: string) => {
+    try {
+      const chatMessages = await dbManager.getChatMessages(sessionId);
+      const formattedMessages = chatMessages.map(msg => ({
+        role: msg.role,
+        content: msg.content
+      }));
+      setMessages(formattedMessages);
+      setCurrentSessionId(sessionId);
+    } catch (error) {
+      console.error('Error loading chat session:', error);
+    }
+  };
+
+  const saveChatMessage = async (role: 'user' | 'assistant', content: string) => {
+    if (!currentSessionId) return;
+    
+    try {
+      await dbManager.saveChatMessage({
+        role,
+        content,
+        sessionId: currentSessionId
+      });
+    } catch (error) {
+      console.error('Error saving chat message:', error);
+    }
+  };
+
+  const buildContextPrompt = (): string => {
+    if (!userContext) return '';
+    
+    const contextParts = [];
+    
+    if (userContext.childName) {
+      contextParts.push(`Child's Name: ${userContext.childName}`);
+    }
+    if (userContext.goals) {
+      contextParts.push(`Goals: ${userContext.goals}`);
+    }
+    if (userContext.individualEducationPlan) {
+      contextParts.push(`Individual Education Plan: ${userContext.individualEducationPlan}`);
+    }
+    if (userContext.functionalAssessment) {
+      contextParts.push(`Functional Assessment: ${userContext.functionalAssessment}`);
+    }
+    if (userContext.ndisplan) {
+      contextParts.push(`NDIS Plan: ${userContext.ndisplan}`);
+    }
+    if (userContext.otherInformation) {
+      contextParts.push(`Other Information: ${userContext.otherInformation}`);
+    }
+    
+    if (contextParts.length === 0) return '';
+    
+    return `Context Information:\n${contextParts.join('\n')}\n\nPlease use this context information when providing responses. `;
+  };
   const clearChat = () => {
     if (engine) {
       engine.interruptGenerate();
@@ -217,11 +302,24 @@ function App() {
 
   const onSubmit = async (data: FormInputs) => {
     const userMessage = data.message;
+    
+    // Create new session if none exists
+    if (!currentSessionId) {
+      await createNewChat();
+    }
+    
+    // Build context-aware message
+    const contextPrompt = buildContextPrompt();
+    const fullUserMessage = contextPrompt + userMessage;
+    
     const updatedMessages = [
       ...messages,
       { role: 'user', content: userMessage }
     ];
     setMessages(updatedMessages);
+    
+    // Save user message to IndexedDB
+    await saveChatMessage('user', userMessage);
 
     reset();
 
@@ -234,7 +332,10 @@ function App() {
 
     try {
       const responseStream = await engine.chat.completions.create({
-        messages: updatedMessages,
+        messages: updatedMessages.map((msg, index) => ({
+          ...msg,
+          content: index === updatedMessages.length - 1 ? fullUserMessage : msg.content
+        })),
         stream: true,
       });
 
@@ -252,6 +353,9 @@ function App() {
           return newMessages;
         });
       }
+      
+      // Save AI response to IndexedDB
+      await saveChatMessage('assistant', aiMessage);
 
     } catch (error) {
       console.error('Error with AI response:', error);
@@ -278,6 +382,20 @@ function App() {
   useEffect(() => {
     const loadEngine = async () => {
       try {
+        // Initialize IndexedDB
+        await dbManager.init();
+        
+        // Load user context
+        const context = await dbManager.getUserContext();
+        setUserContext(context);
+        
+        // Cleanup old messages
+        await dbManager.cleanupOldMessages();
+        
+        // Create initial session
+        const sessionId = await dbManager.createChatSession();
+        setCurrentSessionId(sessionId);
+        
         const SELECTED_MODEL = 'Llama-3.2-1B-Instruct-q4f32_1-MLC';
         const engine = await CreateMLCEngine(SELECTED_MODEL, {
           initProgressCallback: (info) => {
@@ -334,9 +452,38 @@ function App() {
             ))}
           </select>
         </div>
-        <button onClick={clearChat} className="absolute top-4 right-4 bg-[var(--color-button-background-in)] text-[var(--color-text)] p-2 rounded-full shadow-lg z-50">
-          <Trash2 className="w-5 h-5 cursor-pointer" />
-        </button>
+        
+        <div className="absolute top-4 right-4 flex gap-2 z-50">
+          <button 
+            onClick={toggleContextForm} 
+            className="bg-[var(--color-button-background-in)] text-[var(--color-text)] p-2 rounded-full shadow-lg"
+            title="User Context"
+          >
+            <User className="w-5 h-5 cursor-pointer" />
+          </button>
+          <button 
+            onClick={toggleChatHistory} 
+            className="bg-[var(--color-button-background-in)] text-[var(--color-text)] p-2 rounded-full shadow-lg"
+            title="Chat History"
+          >
+            <History className="w-5 h-5 cursor-pointer" />
+          </button>
+          <button 
+            onClick={createNewChat} 
+            className="bg-[var(--color-button-background-in)] text-[var(--color-text)] p-2 rounded-full shadow-lg"
+            title="New Chat"
+          >
+            <Plus className="w-5 h-5 cursor-pointer" />
+          </button>
+          <button 
+            onClick={clearChat} 
+            className="bg-[var(--color-button-background-in)] text-[var(--color-text)] p-2 rounded-full shadow-lg"
+            title="Clear Chat"
+          >
+            <Trash2 className="w-5 h-5 cursor-pointer" />
+          </button>
+        </div>
+        
         <div className="p-6 h-[700px] md:h-[750px] overflow-y-auto">
           {loadError ? (
             <div className="p-3 text-center text-sm text-[var(--color-text)] border border-[var(--color-button-border-out)] bg-[var(--color-button-background-in)] rounded-md shadow-sm max-w-md mx-auto">
@@ -467,6 +614,19 @@ function App() {
             </div>
           </div>
         </form>
+        
+        <ContextForm
+          isVisible={isContextFormVisible}
+          onClose={() => setIsContextFormVisible(false)}
+          onSave={handleContextSave}
+        />
+        
+        <ChatHistory
+          isVisible={isChatHistoryVisible}
+          onClose={() => setIsChatHistoryVisible(false)}
+          onSelectSession={loadChatSession}
+          currentSessionId={currentSessionId}
+        />
       </div>
     </div>
   );
